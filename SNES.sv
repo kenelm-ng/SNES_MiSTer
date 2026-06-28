@@ -178,6 +178,8 @@ parameter CONF_STR = {
 	"P1OG,Pseudo Transparency,Blend,Off;",
 	"P1-;",
 	"P1OJK,Stereo Mix,None,25%,50%,100%;", 
+	"P1O[97:93],Analog Video H-Pos,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
+	"P1O[102:98],Analog Video V-Pos,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
 
 	"P2,Input Options;",
 	"P2-;",
@@ -927,12 +929,33 @@ wire [2:0] scale = status[11:9];
 wire [2:0] sl = scale ? scale - 1'd1 : 3'd0;
 wire       scandoubler = ~interlace && (scale || forced_scandoubler);
 
+// CRT H/V position offset for analog output (mirrors PSX_MiSTer jtframe_resync)
+wire [4:0] crt_hoffset = status[97:93];
+wire [4:0] crt_voffset = status[102:98];
+wire       crt_hs, crt_vs;
+
+jtframe_resync #(5) crt_resync
+(
+	.clk(CLK_VIDEO),
+	.pxl_cen(ce_pix),
+	.hs_in(HSync),
+	.vs_in(VSync),
+	.LVBL(~VBlank),
+	.LHBL(~HBlank),
+	.hoffset(-{crt_hoffset[4], crt_hoffset}),
+	.voffset(-{crt_voffset[4], crt_voffset}),
+	.hs_out(crt_hs),
+	.vs_out(crt_vs)
+);
+
 video_mixer #(.LINE_LENGTH(520), .GAMMA(1)) video_mixer
 (
 	.*,
 	.hq2x(scale==1),
 	.freeze_sync(),
 	.VGA_DE(vga_de),
+	.HSync(crt_hs),
+	.VSync(crt_vs),
 	.R((LG_TARGET && GUN_MODE && (!status[29] | LG_T)) ? {8{LG_TARGET[0]}} : R),
 	.G((LG_TARGET && GUN_MODE && (!status[29] | LG_T)) ? {8{LG_TARGET[1]}} : G),
 	.B((LG_TARGET && GUN_MODE && (!status[29] | LG_T)) ? {8{LG_TARGET[2]}} : B)
